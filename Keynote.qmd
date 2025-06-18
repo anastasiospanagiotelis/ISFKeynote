@@ -819,3 +819,8 @@ remotes::install_github("FinYang/flap")
 ![](coauths/Li.jpeg){width=25%}
 ![](coauths/diFonzo.jpeg){width=18%}
 ![](coauths/Yang.jpeg){width=25%}
+
+## Link to these slides
+
+\centering
+![](keynoteqr.png){width=50%}
