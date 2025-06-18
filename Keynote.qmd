@@ -1,0 +1,821 @@
+---
+title: 'Forecast reconciliation: Geometry, optimization and beyond'
+author: 'Anastasios Panagiotelis'
+date: '2025-07-02'
+toc: true
+bibliography: references.bib
+suppress-bibliography: true
+format:
+  presentation-beamer: default
+  presentation-revealjs+letterbox: default
+---
+
+```{r}
+#| label: load-packages
+library(knitr)
+library(tidyverse)
+library(timeSeriesDataSets)
+library(tsibble)
+library(RColorBrewer)
+library(rsvg)
+library(DiagrammeR)
+```
+
+# Hierarchical Data and Forecast Reconciliation
+
+## Hierarchical Time Series
+
+- At its most general, **multivariate** data $\mathbf{y}\in \mathbb{R}^n$ bound together by some constraints.
+- Typically these constraints are **linear**, although later I will present new work for non-linear constraints.
+- Most commonly arise due to an **aggregation** structure, hence the name 'hierarchical'.
+- Need not be hierarchical, alternative structures are grouped (or crossed) aggregation, or temporal aggregation.
+
+## Hierarchy
+
+```{r eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE,out.align='center'}
+
+grViz("digraph flowchart {
+      # node definitions with substituted label text
+      node [fontname = Helvetica, shape = oval, 
+      fillcolor = DarkCyan]    
+      edge [arrowhead = none]
+      tab1 [label = '@@1']
+      tab2 [label = '@@2']
+      tab3 [label = '@@3']
+      tab4 [label = '@@4']
+      tab5 [label = '@@5']
+      tab6 [label = '@@6']
+      tab7 [label = '@@7']
+
+      # edge definitions with the node IDs
+      tab1 -> tab2;
+      tab1 -> tab3;
+      tab2 -> tab4;
+      tab2 -> tab5;
+      tab3 -> tab6;
+      tab3 -> tab7;
+      }
+
+      [1]: 'Total Sales'
+      [2]: 'Region 1'
+      [3]: 'Region 2'
+      [4]: 'Store 1A'
+      [5]: 'Store 1B'
+      [6]: 'Store 2A'
+      [7]: 'Store 2B'
+      ", height = 300)%>% 
+  DiagrammeRsvg::export_svg() %>% 
+  charToRaw() %>% 
+  rsvg::rsvg_pdf("svg_graph.pdf")
+```
+
+![](svg_graph.pdf)
+
+
+## Data
+
+
+```{r}
+tour<-timeSeriesDataSets::tourism_tbl_ts
+tour%>%
+  filter(Purpose=='Holiday')%>%
+  index_by(Quarter)%>%
+  summarise(Trips=sum(Trips))%>%
+  add_column(Region='Australia')%>%
+  update_tsibble(key=Region)->ttot
+  
+tour%>%
+  filter(Purpose=='Holiday')%>%
+  filter(Region %in% c('Kakadu Arnhem', 'Melbourne'))%>%
+  update_tsibble(key=Region)%>%
+  select(Quarter,Region,Trips)->tbot
+
+bind_rows(ttot,tbot)%>%
+  ggplot(aes(x=Quarter,y=Trips))+facet_wrap(~Region, nrow=3, scales='free_y')+geom_line()+theme_bw()
+
+
+```
+
+## Context
+
+- Observations will always **cohere** to the constraints.
+- Forecasts generally will not.
+  - Different forecasts are made by different agents.
+  - Hard to construct a method that guarantees coherence.
+- Note there is work on **end-to-end** forecasting [e.g. @RanEtAl2021].
+- This talk is about **two-stage** processes.
+
+## Forecasting reconciliation
+
+- Start with a vector of incoherent forecasts $\hat{\mathbf{y}}$.
+- Choose $m$ variables $\mathbf{b}$ (usually **bottom level**).
+- Construct an $n\times m$ matrix $\mathbf{S}$ such that $\mathbf{y}=\mathbf{S}\mathbf{b}$.
+- 'Regress' $\mathbf{y}$ on $\mathbf{S}$.
+- Use prediction as reconciled forecasts $\tilde{y}$, i.e.
+
+$$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}\mathbf{S})^{-1}\mathbf{S}'\mathbf{y}$$
+
+- This is called OLS reconciliation.
+
+## Example of $\mathbf{S}$
+
+- In the simple hierarchy shown earlier
+
+$$\begin{array}{ccccc}\begin{pmatrix}y_{\textrm{Tot}}\\y_1\\y_2\\y_{1A}\\y_{1B}\\y_{2A}\\y_{2B}\end{pmatrix}&=&\begin{pmatrix}1&1&1&1\\1&1&0&0\\0&0&1&1\\1&0&0&0\\0&1&0&0\\0&0&1&0\\0&0&0&1\\\end{pmatrix}&\times&\begin{pmatrix}y_{1A}\\y_{1B}\\y_{2A}\\y_{2B}\end{pmatrix}\\\mathbf{y}&=&\mathbf{S}&\times&\mathbf{b}\end{array}$$
+
+## An optimization lens
+
+- Ensure that $\hat{\mathbf{y}}$ and $\tilde{\mathbf{y}}$ are 'close'.
+
+$$\tilde{\mathbf{y}}=\underset{\mathbf{y}}{argmin}||\mathbf{y}-\hat{\mathbf{y}}||_2$$
+
+- Under certain assumptions, this yields the same solution as the regression interpretation.
+- Also has a game theoretic interpretation [see @vanCug2015]
+
+## Generalizations
+
+- Where OLS works, it makes sense to consider GLS
+
+$$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'\mathbf{W}\mathbf{y}$$
+
+- Setting $\mathbf{W}^{-1}$ to the covariance matrix of $\mathbf{y}-\hat{\mathbf{y}}$ optimizes expected squared error loss.
+- This is the well-known **MinT method** of @WicEtAl2019
+
+## A geometric view
+
+- Another alternative is a geometric view.
+- The constraints imply a linear subspace $\mathcal{S}\subset\mathbb{R}^n$.
+  - Sometimes $\mathfrak{s}$ notation is used.
+- Reconciliation is a **map** from $\mathbb{R}^n\rightarrow\mathcal{S}$.
+- More intutive understanding of why reconciliation 'works'.
+- Provides a framework to extend reconciliation to other settings.
+
+## In a picture
+
+\centering
+![](figs/geo.png)
+
+## Why MinT?
+
+\centering
+\only<1>{\includegraphics[page=1, width=7cm]{figs/mintint.pdf}}
+\only<2>{\includegraphics[page=2, width=7cm]{figs/mintint.pdf}}
+\only<3>{\includegraphics[page=3, width=7cm]{figs/mintint.pdf}}
+\only<4>{\includegraphics[page=4, width=7cm]{figs/mintint.pdf}}
+
+# Probabilistic Forecasts
+
+## Problem
+
+- Probabilistic forecasts are important!
+- The regression interpretation does not naturally lend itself to be extended to probabilistic forecasting
+- Some notions of reconciling draws from probabilistic distributions [@JeoEtAl2019]
+- Formalized as a **pushforward** [@PanEtAl2023].
+- Alternative approaches define the reconciled distribution using *copulas* [@BenEtAl2019] or by *conditioning* [see @CorEtAl2021].
+
+## Probabilistic Reconciliation
+
+\centering
+![](figs/probforerec_schematic.pdf){width=60%}
+
+
+## Probabilistic Reconciliation
+
+- Let $\hat{\mu}$ be a measure on the usual $\sigma$-algebra defined on $\mathbb{R}^n$.
+- Let $\mathcal{A}$ be some region entirely within $\mathcal{S}$ and $\psi:\mathbb{R}^n\rightarrow\mathcal{S}$.
+- Let $\mathcal{B}$ be the pre-image of $\mathcal{A}, i.e. \forall\mathbf{x}\in\mathcal{B}$, $\psi({\mathbf{x}})\in\mathcal{A}$.
+  - Pre-image denoted $\psi^{-1}(\mathcal{A})$
+- The reconciled measure $\tilde{\mu}$ is defined as
+
+$$\tilde{\mu}(\mathcal{A})=\hat{\mu}(\mathcal{B})$$
+
+- $\tilde{\mu}$ is the **pushforward** of $\hat{\mu}$ by $\psi$, denoted as $\psi\texttt{\#}\hat{\mu}$
+
+## Optimality
+
+- This merely defines a way of getting a reconciled distribution from some incoherent base distribution.
+- What is the optimal $\psi$?
+- In the point forecasting world the $\psi$ given by MinT is optimal for squared loss.
+- What does optimality even mean for distributional forecasts?
+
+## Scoring rules
+
+- A scoring rule $S:\mathcal{P}\times\mathbb{R}^n\rightarrow\mathbb{R}$ takes a distributional forecast from a family $\mathcal{P}$ and an observation and assigns a *score* that measures forecast quality.
+- In the context of probabilistic forecasting, it has been proven that choosing $\psi$ to be the same projection as MinT is optimal for log score when probabilistic forecasts are Gaussian [@Wic2021]
+- In other cases we can optimize using a data driven approach.
+
+
+
+## Score Optimization
+
+- Obtain a sequence of base forecasts $\hat{\mu}_{t}$ and corresponding realizations $\mathbf{y}_{t}$.
+- Parameterize $\psi$ by some parameters $\boldsymbol{\theta}$ (denoted $\psi_{\boldsymbol\theta}$)
+- For example, $\psi(\mathbf{y})=\mathbf{S}(\mathbf{d}+\mathbf{G}\mathbf{y})$, $\boldsymbol{\theta}=\left(\mathbf{d}',vec(\mathbf{G})'\right)'$
+- Optimize the following
+
+$$\underset{\boldsymbol{\theta}}{argmin}\sum\limits_t S(\psi_{\boldsymbol{\theta}}\texttt{\#}\hat{\mu}_{t},\mathbf{y}_t)$$
+
+## Some practical points
+
+- Scoring rules that have been used include log score, energy score and variogram score.
+- Paired forecasts and observations can be obtained using rolling or expanding window schemes.
+- Different optimal values can be obtained for different forecast horizons.
+- Often draw a sample from $\hat\mu$ rather than work with the distribution itself.
+- Optimization by first order methods (e.g. SGD).
+
+## Energy Generation Example
+
+- Consider a moderate sized hierarchy (approx 20 variables) of electricity generation from different sources.
+- Consider four different base forecasts
+  - Assume Gaussianity or bootstrap
+  - Assume independence or dependence
+- Reconcile using projections (OLS, MinT) and also by optimising Energy score.
+
+## Energy Generation Example
+
+\centering
+![](figs/meanenergyscore.pdf){width=50%}
+
+## Some thoughts
+
+- Interplay between reconciliation and model misspecification.
+- Reconciliation via score optimization most effective when base models heavily misspecified.
+- For reasonably well specified models
+  - Projections are robust
+  - Gains over base forecasts are not as big
+- Generalization of point forecast reconciliation to probabilistic setting gives forecaster a 'second chance'.
+
+# Quantile Forecasting
+
+## Pinball loss
+
+- Many forecasting problems involve optimizing pinball loss.
+
+$$L_{\alpha}(y,q)=\alpha(y_i-q)I(y_i\geq q)+(1-\alpha)(q-y_i)I(y_i<  q)$$
+
+- Here, I(.) equals 1 when the statement in parentheses is true, 0 otherwise.
+- Quantiles minimize expected pinball loss $E_{Y}\left[ L_{\alpha}(y,q)\right]$
+
+## In reconciliation
+
+- To target quantiles we optimize.
+
+$$\underset{G}{argmin}\sum^n_{i=1} \sum_{t\in\mathcal{T}_{\mathrm{train}}}L_{\alpha}(y_{i,t},\tilde{q}_{i,t})$$
+
+- Subject to the constraints
+
+$$\tilde{q}_{i,t}=\underset{q}{argmin}E_{\tilde{Y}_{i,t}}\left[ L_{\alpha}(\tilde{y}_{i,t},q)\right]$$
+
+## Optimization
+
+- This is an example of **bi-level optimization**.
+- It is further complicated by the fact that pinball loss is not smooth.
+- It is also complicated by the need to approximate expectations with sample equivalents
+
+## Smooth pinball loss
+
+The following function approximates the pinball loss and converges to pinball loss as $\beta\rightarrow \infty$
+
+$$L_{\alpha}^\beta(y,q)=\frac{1}{\beta}\log\left(e^{\beta\alpha(y-q)} + e^{\beta(1-\alpha)(q-y)} \right)$$
+
+Unlike the pinball function it is smooth, meaning we can use first order methods (like Stochastic Gradient Descent).
+
+## Smoothed pinball loss ($\beta$ = 1)
+
+```{r}
+
+y<-rnorm(10000)
+y<-sort(y)
+alpha=0.9
+q<-qnorm(alpha)
+loss = alpha*(y-q)*(q<y)+(1-alpha)*(q-y)*(q>y)
+beta=1
+sloss = (1/beta)*log(exp(beta*alpha*(y-q))+exp(beta*(1-alpha)*(q-y)))
+plot(y,loss,'l',lwd=3,main = 'Pinball loss alpha=0.9, q=1.2816')
+lines(y,sloss,lwd=3,col='darkorange')
+
+```
+
+## Smoothed pinball loss ($\beta$ = 10)
+
+```{r}
+
+y<-rnorm(10000)
+y<-sort(y)
+alpha=0.9
+q<-qnorm(alpha)
+loss = alpha*(y-q)*(q<y)+(1-alpha)*(q-y)*(q>y)
+beta=10
+sloss = (1/beta)*log(exp(beta*alpha*(y-q))+exp(beta*(1-alpha)*(q-y)))
+plot(y,loss,'l',lwd=3,main = 'Pinball loss alpha=0.9, q=1.2816')
+lines(y,sloss,lwd=3,col='darkorange')
+
+```
+
+## Smoothed pinball loss ($\beta$ = 100)
+
+```{r}
+
+y<-rnorm(10000)
+y<-sort(y)
+alpha=0.9
+q<-qnorm(alpha)
+loss = alpha*(y-q)*(q<y)+(1-alpha)*(q-y)*(q>y)
+beta=100
+sloss = (1/beta)*log(exp(beta*alpha*(y-q))+exp(beta*(1-alpha)*(q-y)))
+plot(y,loss,'l',lwd=3,main = 'Pinball loss alpha=0.9, q=1.2816')
+lines(y,sloss,lwd=3,col='darkorange')
+
+```
+
+## Optimization problem
+
+The problem we can actually solve is
+
+$$\underset{G}{argmin}\sum^n_{i=1} \sum_{t\in\mathcal{T}_{\mathrm{train}}}L^{\beta}_{\alpha}(y_{i,t},\tilde{q}_{i,t})$$
+
+subject to
+
+$$\tilde{q}_{i,t|t-1}=\underset{q}{argmin}\sum_j L^{\beta}_{\alpha}(\tilde{y}^{(j)}_{i,t},q)$$
+
+where $\tilde{y}^{(j)}_{i,t}=\mathbf{SG}\hat{y}^{(j)}_{i,t}$ and $\hat{y}^{(j)}_{i,t}\sim\hat\mu_t$ for $j=1,\dots,J$ 
+
+<!-- ## Some Theory -->
+
+<!-- Let $X \subseteq \mathbb{R}^d$ and $g^k,g:X \to \mathbb{R}$ be continuous functions such that $\sup_{x \in X} |g^k(x) - g(x)| \to 0$ as $k \to \infty$. Suppose $\{x^k\}_{k \in \mathbb{N}} \subset X$ is a sequence of $\epsilon^k$-minimizers of $g^k$ (i.e., $g^k(x^k) \leq \min_{x \in X} g^k(x) + \epsilon^k$, where $\epsilon^k \to 0$ as $k \to \infty$. Then any cluster point of $\{x^k\}_{k \in \mathbb{N}}$ is a minimizer of $g$. -->
+
+## What has been proven
+
+Let $f(\mathbf{G})$ be the problem we want to solve, $f^\beta(\mathbf{G})$ be the smooth approximation of pinball loss, and $f^{(J)}$ the approximation from using $J$ draws. We prove
+
+$$\begin{aligned}
+&\sup_{\mathbf{G} \in \mathcal{G}} \left| f^\beta(\mathbf{G}) - f(\mathbf{G}) \right| \to 0 \text{ as $\beta \to \infty$}\\
+&\sup_{\mathbf{G} \in \mathcal{G}} \left| f^{(J)}(\mathbf{G}) - f^\beta(\mathbf{G}) \right| \to 0 \text{ as $J \to \infty$}.
+\end{aligned}$$
+
+This implies the minimizer of the approximate problem converges to the minimizer of the 'true' problem.
+
+## Convergence of SGD
+
+- Optimization via SGD, taking care to pass gradient through argmin in lower level.
+- Note that the approximation of the expectation in the constraint means that the gradient is a biased estimate
+- However the variant of SGD we use will converge if
+  - Bounded second moment of the stochastic gradient
+  - $L$-smoothness 
+- Both are proven to hold for the functions we consider.
+- Important to check convergence of SGD.
+
+## Empirical study
+
+- Use Australian tourism data.
+- Grouped hierarchy of states and purpose of travel.
+- Dimension of $\mathbf{S}$ is $40\times 28$.
+- Seasonal ARIMA used for base forecasts. Distributional forecasts assume Gaussian errors and skew t errors.
+- Train on 10 years (120 observations), evaluation on 7 years (84 observations).
+
+
+## Pinball Loss - Out of Sample (Normal errors)
+
+\begin{table}
+\begin{center}
+\begin{tabular}{r|llll}
+&\multicolumn{4}{c}{Quantile Level}\\  
+\hline
+Method & 0.05 & 0.2 & 0.8 & 0.95\\
+\hline
+Base & 32* &$85*$ &101 &46\\
+OLS & 32* &84* &104 &51\\
+WLS & \bf{31*} &\bf{82*} &112 &65\\
+MinT & \bf{31*} &\bf{82*} &111 &65\\
+QOpt & 35* &85* &100* &\bf{41*}\\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+**Bold** denotes best performing method, asterisk(*) denotes inclusion in model confidence set (Hansen et. al., 2011).
+
+
+# Non-Linear Forecasting
+
+## The problem
+
+- What if the constraints are non-linear?
+- For example ratios are common quntities of interest.
+  - Mortality rates are Deaths divided by Exposure.
+  - Unemployment rates are number of unemployed divided by labor force.
+- Both of these examples are also be subject to aggregation.
+
+
+## Problem formulation
+
+- In general there are $C$ constraints $g_1(\mathbf{y})=0,\dots g_C(\mathbf{y})=0$, or more compactly $g(\mathbf{y})=\mathbf{0}$.
+- The level set of points $\mathbf{y}:g(\mathbf{y})=\mathbf{0}$ defines a coherent *surface* or *manifold* continue to be denoted as $\mathcal{S}$.
+- Non-linear reconciliation solves the following problem:
+
+$$\tilde{\mathbf{y}}=\underset{\mathbf{y}}{argmin}(\mathbf{y}-\hat{\mathbf{y}})'\mathbf{W}(\mathbf{y}-\hat{\mathbf{y}})$$
+
+
+- Subject to $\mathbf{y}\in\mathcal{S}$.
+
+## Towards Theory
+
+- Note focus is still on point forecasts.
+- First consider case of convex constraints.
+  - Reconciliation guaranteed to improve base forecast, but only in hypograph.
+- For more general constraints 
+  - Find closest point on the coherent manifold equidistant from the base and reconciled forecast.
+  - This defines a ball in which reconciliation always outperforms base forecasts.
+
+## Convex Function: Hypograph
+
+```{r, fig.align='center'}
+library(latex2exp)
+
+plot.new()
+
+plot.window(ylab = '',xlab = '',asp = 1,xlim = c(-0.25,3.25),ylim = c(0.5,3))
+
+#Define g
+
+# Grid of x values
+gridy1<-seq(0,3,by=0.1)
+
+# Define graph of (g(y)=0) as a function of y1
+f<-function(y1){0.5*(y1-1)^2+1}
+
+gridy2<-f(gridy1)
+
+
+lines(gridy1,gridy2,type = 'l',lwd=6)
+
+#Construct polygon with epigraph
+
+
+polygon(c(min(gridy1),gridy1,max(gridy1)),c(min(gridy2)-1,gridy2,min(gridy2)-1),col='lightgray',border = NA)
+
+ytilde1<-2 #Value of ytilde
+ytilde2<-f(ytilde1)
+
+points(ytilde1,ytilde2,pch=19,cex=2,col='#0072B2')
+
+#Define Gradient of g
+
+dg<-function(y){c(0.5*2*(y[1]-1),-1)}
+
+gtilde<-dg(c(ytilde1,ytilde2))
+
+ystar1<-0.5
+ystar2<-f(ystar1)
+
+points(ytilde1,ytilde2,pch=19,cex=2,col='#0072B2')
+
+
+lambda<-0.4
+
+yhat1<-ytilde1+lambda*gtilde[1]
+yhat2<-ytilde2+lambda*gtilde[2]
+
+arrows(x0 = ytilde1,y0 = ytilde2,x1 = ytilde1+gtilde[1],y1 = ytilde2+gtilde[2],length = 0.1,lwd=3,col='#D55E00')
+
+points(yhat1,yhat2,pch=19,cex=2,col='#CC79A0')
+points(ystar1,ystar2,pch=19,cex=2,col='black')
+
+#Hyperplane at ytilde
+
+h<-function(y1){-((gtilde[1]*y1)/gtilde[2])+ytilde2+((gtilde[1]*ytilde1)/gtilde[2])}
+
+gridy2h<-h(gridy1)
+
+lines(gridy1,gridy2h,lty=2)
+
+
+text(yhat1,yhat2,TeX("\\hat{y}"),pos=3,offset = 0.9,col='#CC79A0')
+text(ytilde1,ytilde2,TeX("\\tilde{y}"),pos=3,offset = 0.9,col='#0072B2')
+text(ystar1,ystar2,TeX("y"),pos=3,offset = 0.9,col='black')
+lines(c(yhat1,ystar1),c(yhat2,ystar2),col='#CC79A0',lwd=2)
+lines(c(ytilde1,ystar1),c(ytilde2,ystar2),col='#0072B2',lwd=2)
+
+```
+
+## Any function
+
+```{r, fig.align='center'}
+
+plot.new()
+plot.window(ylab = '',xlab = '',asp = 1,xlim = c(-0.25,3.25),ylim = c(0.5,3))
+
+
+
+# Grid of x values
+gridy1<-seq(0,3,by=0.1)
+# Define graph of (g(y)=0) as a function of y1
+f<-function(y1){0.5*(y1-1)^2+1}
+gridy2<-f(gridy1)
+
+ytilde1<-2 #Value of ytilde
+ytilde2<-f(ytilde1)
+
+
+r<-0.98#Precomputed
+theta<-seq(0,2*pi,length.out=100)
+b1<-rep(NA,100)
+b2<-rep(NA,100)
+for (i in 1:100){
+  b1[i]<-r*cos(theta[i])+ytilde1
+  b2[i]<-r*sin(theta[i])+ytilde2
+}
+polygon(b1,b2,col = 'lightgray',border = NA)
+lines(gridy1,gridy2,type = 'l',lwd=6)
+points(ytilde1,ytilde2,pch=19,cex=2,col='#0072B2')
+#Define Gradient of g
+dg<-function(y){c(0.5*2*(y[1]-1),-1)}
+gtilde<-dg(c(ytilde1,ytilde2))
+
+lambda<-0.4
+yhat1<-ytilde1-lambda*gtilde[1]
+yhat2<-ytilde2-lambda*gtilde[2]
+yhat1m<-ytilde1-0.5*lambda*gtilde[1]
+yhat2m<-ytilde2-0.5*lambda*gtilde[2]
+#arrows(x0 = ytilde1,y0 = ytilde2,x1 = ytilde1+gtilde[1],y1 = ytilde2+gtilde[2],length = 0.1,lwd=3,col='#D55E00')
+points(yhat1,yhat2,pch=19,cex=2,col='#CC79A0')
+#Hyperplane at ytilde
+h<-function(y1){-((gtilde[1]*y1)/gtilde[2])+ytilde2+((gtilde[1]*ytilde1)/gtilde[2])}
+hm<-function(y1){-((gtilde[1]*y1)/gtilde[2])+yhat2m+((gtilde[1]*yhat1m)/gtilde[2])}
+gridy2h<-h(gridy1)
+gridy2hm<-hm(gridy1)
+lines(gridy1,gridy2h,lty=2)
+lines(gridy1,gridy2hm,lty=2)
+text(yhat1,yhat2,TeX('\\hat{y}'),pos=2,offset = 0.9,col='#CC79A0')
+text(ytilde1,ytilde2,TeX('\\tilde{y}'),pos=1,offset = 0.9,col='#0072B2')
+
+ystar1<-1.15
+ystar2<-f(ystar1)
+points(ystar1,ystar2,pch=19,cex=2,col='black')
+text(ystar1,ystar2,TeX('$y^*$'),pos=3,offset = 0.9,col='black')
+lines(c(yhat1,ystar1),c(yhat2,ystar2),col='#CC79A0',lwd=2)
+lines(c(ytilde1,ystar1),c(ytilde2,ystar2),col='#0072B2',lwd=2)
+
+gbreve<-dg(c(ystar1,ystar2))*0.5
+arrows(x0 = ytilde1,y0 = ytilde2,x1 = ytilde1+gtilde[1],y1 = ytilde2+gtilde[2],length = 0.1,lwd=3,col='#D55E00')
+lines(c(yhat1-2*gtilde[1],ytilde1),c(yhat2-2*gtilde[2],ytilde2),lty=3)
+lines(c(ystar1-4*gbreve[1],ystar1),c(ystar2-4*gbreve[2],ystar2),lty=3)
+
+text(ytilde1+0.3*gtilde[1],ytilde2+0.3*gtilde[2],TeX('$\\tilde{j}$'),pos=4,offset = 0.7,col='#D55E00')
+arrows(x0 = ystar1,y0 = ystar2,x1 = ystar1+gbreve[1],y1 = ystar2+gbreve[2],length = 0.1,lwd=3,col='#D55E00')
+text(ystar1+0.5*gbreve[1],ystar2+0.5*gbreve[2],TeX('$j^*$'),pos=4,offset = 0.7,col='#D55E00')
+
+points(ystar1,ystar2,pch=19,cex=2,col='black')
+points(yhat1,yhat2,pch=19,cex=2,col='#CC79A0')
+points(ytilde1,ytilde2,pch=19,cex=2,col='#0072B2')
+
+
+```
+
+## Radius of the Ball
+
+- The radius of the ball on the previous slide is given by
+
+$$r=\sqrt{\boldsymbol{\kappa}'\mathbf{J}^{*'}\mathbf{J}^{*}\boldsymbol{\kappa}+\mu\boldsymbol{\kappa}'\mathbf{J}^{*'}\tilde{\mathbf{J}}\boldsymbol\lambda+\frac{\mu^2}{4}\boldsymbol\lambda\tilde{\mathbf{J}}'\tilde{\mathbf{J}}\boldsymbol\lambda}$$
+
+- $\mathbf{J}^*$ and $\tilde{\mathbf{J}}$ are gradients of the constraint evaluated at $\mathbf{y}^*$ and $\tilde{\mathbf{y}}$ respectively.
+- $\lambda$ and $\mathbf{\boldsymbol\kappa}$ are Lagrange multipliers associated with certain optimization problems.
+
+## How is this useful?
+
+- This theory tells us that non-linear forecast reconciliation is more likely to succeed when
+  - Base forecast is far from coherent manifold.
+  - The constraint function has lower curvature.
+  - When reconciled forecast is in a high probability region of the true DGP
+  - When some constraints are convex and the bast forecast is more likely to lie in the hypographs of these constraints.
+  
+## Simulation results
+
+\centering
+![](plot_kappa.pdf)
+
+## Mortality Data
+
+- Annual (1969-2019) data on
+  - Exposure ($E$)
+  - Deaths ($D$)
+  - Mortality rates ($M$)  
+- For US as a whole and 9 census regions. 
+- $E$ and $D$ respect aggregation constraints, $M$ do not but $M=D/E$ for each region.
+
+## Mortality Data
+
+\centering
+![](nem_se.pdf){height=80%}
+
+# Beyond Hierarchies
+
+## Setup
+
+- Suppose we are interested in multivariate forecasting but do not have linear (or non-linear) constraints.
+- Is there anything interesting about forecast reconciliation.
+- Surprisingly... Yes!
+- New work on Forecast Linear Augmented Projects (FLAP)
+
+## What is FLAP?
+
+- Suppose the target is to foreast $\mathbf{y}_t\in\mathbb{R}^m$.
+- We construct new synthetic series $\mathbf{c}_t\in\mathbb{R}^p$ where $\mathbf{c}_t=\boldsymbol{\Phi}\mathbf{y}_t$.
+  - The choice of $\boldsymbol{\Phi}$ is arbitrary.
+- The augmented vector $(\mathbf{c}'_t,\mathbf{y}'_t)'$ coheres to known linear constraints.
+- The strategy is to carry out forecast reconciliation on the augmented vector.
+
+
+## What is FLAP?
+
+- Forecast all components of $(\mathbf{c}'_t,\mathbf{y}'_t)'$
+- Typically $\hat{\mathbf{c}}\neq\boldsymbol\Phi\hat{\mathbf{y_t}}$.
+- Use MinT to obtain $(\tilde{\mathbf{c}}'_t,\tilde{\mathbf{y}}'_t)'$ such that $\tilde{\mathbf{c}}=\boldsymbol\Phi\tilde{\mathbf{y_t}}$.
+- Total forecast error variance of $\tilde{\mathbf{y}_t}$ provably lower than $\hat{\mathbf{y}_t}$.
+- Total forecast error variance is non-increasing as more components added.
+
+## No free lunch
+
+- Originally FLAP stood for 'Free Lunch' augmented projection.
+- All proofs assume error covariance matrix used in MinT in **known**. In practice it is estimated.
+- The quality covariance matrix estimates deteriorate with higher dimension.
+- However for finite dimension, the benefit of FLAP outweighs errors in estimating covariance matrix.
+
+## Geometry of FLAP
+
+## Geometry of FLAP 
+
+\only<1>{\includegraphics[page=1, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<2>{\includegraphics[page=2, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<3>{\includegraphics[page=3, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<4>{\includegraphics[page=4, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<5>{\includegraphics[page=5, width=12cm]{figs/FLAP_geometry.pdf}}
+
+<!-- ## Simulation -->
+
+<!-- * Data generating process: VAR($3$) with $m=70$ variables -->
+
+<!-- * Innovations $\sim N(0,\mathbf{I}_m)$  -->
+
+<!-- * Sample size: $T=400$ -->
+
+<!-- * Number of repeated samples: $220$ -->
+
+<!-- * Base forecasts: -->
+
+<!--   * ARIMA models using AICc (`auto.arima()` in `forecast` package). -->
+<!--   * DFM structure using BIC (different model for each horizon). -->
+
+
+<!-- ## Simulation -->
+
+<!-- ```{r simulation} -->
+
+<!-- cb_palette_grey <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") -->
+<!-- m <- 70 -->
+<!-- mse <- qs::qread(here::here("output/simulation_mse.qs")) |> -->
+<!--   as_tibble() |> -->
+<!--   filter(model %in% c("arima", "dfm", "var", "true"), -->
+<!--          Phi %in% c("PCA_normal") | is.na(Phi), -->
+<!--          h %in% c(1, 6)) |> -->
+<!--   mutate( -->
+<!--     Component = case_when( -->
+<!--       !proj ~ "No projection", -->
+<!--       proj & Phi == "PCA_normal" ~ "PCA + Normal", -->
+<!--       TRUE ~ "Other" -->
+<!--     ) -->
+<!--   ) -->
+<!-- mse |> -->
+<!--   ggplot(aes(x = p, y = value, colour = model, linetype = Component)) + -->
+<!--   geom_vline(xintercept = m) + -->
+<!--   geom_line() + -->
+<!--   geom_hline(data = filter(mse, !proj), -->
+<!--              aes(yintercept = value, colour = model, linetype = Component)) + -->
+<!--   facet_grid(rows = "h", scales = "free", labeller = label_both) + -->
+<!--   ylab("MSE") + -->
+<!--   scale_color_manual( -->
+<!--     name = "Model", -->
+<!--     values = cb_palette_grey[c(7, 6, 4, 2)], -->
+<!--     labels = c( -->
+<!--       "arima" = "ARIMA", -->
+<!--       "dfm" = "DFM", -->
+<!--       "true" = "VAR - DGP", -->
+<!--       "var" = "VAR - Est.")) + -->
+<!--   scale_linetype_manual( -->
+<!--     name = "Component", -->
+<!--     values = c("dashed", "solid"), -->
+<!--     labels = c("No projection", "PCA + Normal") -->
+<!--   ) -->
+<!-- ``` -->
+
+## FRED-MD
+
+* Monthly data of macroeconomic variables (McCracken and Ng, 2016).
+
+* Data from Jan 1959 -- Sep 2023. 777 observations on 122 series.
+
+* Same cleaning process as per McCracken and Ng (2016).
+
+* All series scaled to have mean 0 and variance 1.
+
+* Expanding time series cross-validation with initial size of 25 years and forecast horizon 12 months.
+
+```{r}
+#| label: fred-md
+
+cb_palette_grey <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+m <- 122
+mse <- qs::qread(here::here("output/fred_mse.qs")) |>
+  tibble::as_tibble() |>
+  filter(model %in% c("arima", "dfm"), h %in% c(1, 6, 12)) |>
+  filter(Phi %in% c("NA", "normal", "PCA_normal")) |>
+  mutate(
+    Component = case_when(
+      !proj ~ "No projection",
+      Phi == "normal" ~ "Normal",
+      Phi == "PCA_normal" ~ "PCA + Normal"
+    )
+  )
+```
+
+
+## FRED-MD
+
+```{r}
+#| label: fred-md-arima
+mse |>
+  filter(model %in% c("arima","dfm")) |>
+  filter(Phi %in% c("NA", "PCA_normal"))|>
+  ggplot(aes(x = p, y = value, colour = model, linetype = Component)) +
+  geom_vline(xintercept = m) +
+  geom_line() +
+  geom_hline(data = filter(mse, !proj),
+             aes(yintercept = value, colour = model, linetype = Component)) +
+  facet_grid(rows = "h", scales = "free", labeller = label_both) +
+  ylab("MSE") +
+  scale_color_manual(
+    name = "Model",
+    values = cb_palette_grey[c(7, 6, 4, 2)],
+    labels = c(
+      "arima" = "ARIMA",
+      "dfm" = "DFM",
+      "true" = "VAR - DGP",
+      "var" = "VAR - Est.")) +
+  scale_linetype_manual(
+    name = "Component",
+    values = c("dashed", "solid"),
+    labels = c("No projection", "PCA + Normal")
+  )
+```
+
+## Working Paper and R Package
+
+\fontsize{10}{8}\sf
+
+YF Yang, G Athanasopoulos, RJ Hyndman, and A Panagiotelis
+(2024). “Forecast Linear Augmented Projection (FLAP): A free
+lunch to reduce forecast error variance”. 
+
+[*Department of
+Econometrics and Business Statistics, Monash University, Working Paper
+Series 13/24*.](https://www.monash.edu/business/ebs/research/publi
+cations/ebs/2024/wp13-2024.pdf)
+\fontsize{12}{8}\sf
+
+You can install the stable version from CRAN
+``` r
+## CRAN.R-project.org/package=flap
+install.packages("flap")
+``` 
+or the development version from Github
+```r
+## github.com/FinYang/flap
+# install.packages("remotes")
+remotes::install_github("FinYang/flap")
+```
+
+# Wrap-up
+
+## Final thoughts
+
+- Forecast reconciliation is a practical and interesting problem with many open questions.
+  - Jump on the bandwagon!
+- Sometimes understanding the same problem in a different way opens new doors in research.
+- Theory, methodology and application all matter. The connections and feedback loops between them are important.
+  - Do not neglect any of these!
+
+
+## Final Thankyou
+
+\centering
+
+![](coauths/Hyndman.jpg){width=19%}
+![](coauths/Athanasopoulos.jpeg){width=22%}
+![](coauths/Gamakumara.jpeg){width=19%}
+![](coauths/Ho-Nguyen.jpeg){width=16%}
+![](coauths/Alipour.jpg){width=19%}
+
+![](coauths/Girolimetto.jpeg){width=25%}
+![](coauths/Li.jpeg){width=25%}
+![](coauths/diFonzo.jpeg){width=18%}
+![](coauths/Yang.jpeg){width=25%}
