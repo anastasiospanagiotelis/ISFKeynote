@@ -164,10 +164,11 @@ $$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}'\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'
 ## Geometry of reconciliation
 
 - Reconciliation is a **map** from $\psi:\mathbb{R}^n\rightarrow\mathcal{S}$.
-- These maps can be projections e.g. MinT
-- They can also be more general.
-- For example, later we use $\psi$ of the form $$\tilde{\mathbf{y}}=\mathbf{S}\left({\mathbf{d}}+\mathbf{G}\hat{\mathbf{y}}\right)$$
-- On the next few slides we will depict projections. 
+- While these maps can be more general than projections.
+- However projections have some nice properties
+  - OLS always reduces forecast error.
+  - MinT minimizes forecast error in expectation.
+<!-- - For example, later we use $\psi$ of the form $$\tilde{\mathbf{y}}=\mathbf{S}\left({\mathbf{d}}+\mathbf{G}\hat{\mathbf{y}}\right)$$ -->
 
 
 ## OLS Reconciliation
@@ -178,10 +179,10 @@ $$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}'\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'
 ## Why MinT?
 
 \centering
-\only<1>{\includegraphics[page=1, width=7cm]{figs/mintint.pdf}}
-\only<2>{\includegraphics[page=2, width=7cm]{figs/mintint.pdf}}
-\only<3>{\includegraphics[page=3, width=7cm]{figs/mintint.pdf}}
-\only<4>{\includegraphics[page=4, width=7cm]{figs/mintint.pdf}}
+<!-- \only<1>{\includegraphics[page=1, width=7cm]{figs/mintint.pdf}} -->
+\only<1>{\includegraphics[page=2, width=7cm]{figs/mintint.pdf}}
+\only<2>{\includegraphics[page=3, width=7cm]{figs/mintint.pdf}}
+\only<3>{\includegraphics[page=4, width=7cm]{figs/mintint.pdf}}
 
 # Probabilistic Forecasts
 
@@ -201,13 +202,13 @@ $$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}'\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'
 
 ## Probabilistic Reconciliation
 
-- Let $\hat{\mu}$ be a measure on the usual $\sigma$-algebra defined on $\mathbb{R}^n$.
+- Let $\hat{\mu}$ be a measure on $\mathbb{R}^n$.
 - Let $\mathcal{A}$ be some region entirely within $\mathcal{S}$ and $\psi:\mathbb{R}^n\rightarrow\mathcal{S}$.
-- Let $\mathcal{B}$ be the pre-image of $\mathcal{A}$, denoted $\psi^{-1}(\mathcal{A})$
-  - $\forall\mathbf{x}\in\mathcal{B}$, $\psi({\mathbf{x}})\in\mathcal{A}$.
+- Let $\psi^{-1}(\mathcal{A})$ be the pre-image of $\mathcal{A}$
+  - $\forall\mathbf{x}\in\psi^{-1}(\mathcal{A})$, $\psi({\mathbf{x}})\in\mathcal{A}$.
 - The reconciled measure $\tilde{\mu}$ is defined as
 
-\only<6>{$$\tilde{\mu}(\mathcal{A})=\hat{\mu}(\mathcal{B})$$}
+\only<6>{$$\tilde{\mu}(\mathcal{A})=\hat{\mu}(\psi^{-1}(\mathcal{A}))$$}
 
 - $\tilde{\mu}$ is the **pushforward** of $\hat{\mu}$ by $\psi$, denoted as $\psi\texttt{\#}\hat{\mu}$
 
@@ -263,7 +264,7 @@ $$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}'\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'
 - For reasonably well specified models
   - Projections are robust
   - Gains over base forecasts are not as big
-- Generalization of point forecast reconciliation to probabilistic setting gives forecaster a 'second chance'.
+- Reconciliation gives forecaster a 'second chance'.
 
 # Quantile Forecasting
 
@@ -290,7 +291,7 @@ $$L_{\alpha}(y,q)=\alpha(y_i-q)I(y_i\geq q)+(1-\alpha)(q-y_i)I(y_i<  q)$$
 
 - This is an example of **bi-level optimization**.
 - It is further complicated by the fact that pinball loss is not smooth.
-- It is also complicated by the need to approximate expectations with sample equivalents
+- It is also complicated by the need to approximate expectations with sample equivalents.
 
 ## Smooth pinball loss
 
@@ -360,11 +361,11 @@ $$\tilde{q}_{i,t}=\underset{q}{argmin}E_{\tilde{Y}_{i,t}}\left[ L_{\alpha}(\tild
 
 $$\underset{G}{argmin}\sum^n_{i=1} \sum_{t\in\mathcal{T}_{\mathrm{train}}}L^{\beta}_{\alpha}(y_{i,t},\tilde{q}_{i,t})$$
 
-subject to
+- Subject to the constraints
 
 $$\tilde{q}_{i,t|t-1}=\underset{q}{argmin}\sum_j L^{\beta}_{\alpha}(\tilde{y}^{(j)}_{i,t},q)$$
 
-where $\tilde{y}^{(j)}_{i,t}=\psi_{\boldsymbol{\theta}}\left(\hat{y}^{(j)}_{i,t}\right)$ and $\hat{y}^{(j)}_{i,t}\sim\hat\mu_t$ for $j=1,\dots,J$ 
+<!-- where $\tilde{y}^{(j)}_{i,t}=\psi_{\boldsymbol{\theta}}\left(\hat{y}^{(j)}_{i,t}\right)$ and $\hat{y}^{(j)}_{i,t}\sim\hat\mu_t$ for $j=1,\dots,J$  -->
 
 <!-- ## Some Theory -->
 
@@ -372,14 +373,16 @@ where $\tilde{y}^{(j)}_{i,t}=\psi_{\boldsymbol{\theta}}\left(\hat{y}^{(j)}_{i,t}
 
 ## What has been proven
 
-Let $f(\mathbf{G})$ be the problem we want to solve, $f^\beta(\mathbf{G})$ be the smooth approximation of pinball loss, and $f^{(J)}$ the approximation from using $J$ draws. We prove
+- Let $f(\mathbf{G})$ be the problem we want to solve
+- Let $f^\beta(\mathbf{G})$ be the smooth approximation of pinball loss
+- Let $f^{(J)}$ the approximation from using $J$ draws. 
+- Prove minimizer of approximate problem converges to minimizer of the 'true' problem by proving
 
-$$\begin{aligned}
+\only<5>{$$\begin{aligned}
 &\sup_{\boldsymbol{\theta} \in \boldsymbol{\Theta}} \left| f^\beta(\boldsymbol{\theta}) - f(\boldsymbol{\theta}) \right| \to 0 \text{ as $\beta \to \infty$}\\
 &\sup_{\boldsymbol{\theta} \in \boldsymbol{\Theta}} \left| f^{(J)}(\boldsymbol{\theta}) - f^\beta(\boldsymbol{\theta}) \right| \to 0 \text{ as $J \to \infty$}.
-\end{aligned}$$
+\end{aligned}$$}
 
-This implies the minimizer of the approximate problem converges to the minimizer of the 'true' problem.
 
 ## Convergence of SGD
 
@@ -648,17 +651,17 @@ $$r=\sqrt{\boldsymbol{\kappa}'\mathbf{J}^{*'}\mathbf{J}^{*}\boldsymbol{\kappa}+\
 
 ## What is FLAP?
 
-- Suppose the target is to foreast $\mathbf{y}_t\in\mathbb{R}^m$.
-- We construct new synthetic series $\mathbf{c}_t\in\mathbb{R}^p$ where $\mathbf{c}_t=\boldsymbol{\Phi}\mathbf{y}_t$.
+- Suppose the target is to foreast $\mathbf{y}\in\mathbb{R}^m$.
+- We construct new synthetic series $\mathbf{c}\in\mathbb{R}^p$ where $\mathbf{c}=\boldsymbol{\Phi}\mathbf{y}$.
   - The choice of $\boldsymbol{\Phi}$ is arbitrary.
-- The augmented vector $(\mathbf{c}'_t,\mathbf{y}'_t)'$ coheres to known linear constraints.
-- Forecast all components of $(\mathbf{c}'_t,\mathbf{y}'_t)'$
+- The augmented vector $(\mathbf{c}',\mathbf{y}')'$ coheres to known linear constraints.
+- Forecast all components of $(\mathbf{c}',\mathbf{y}')'$
 - Reconcile using MinT.
 
 ## The key idea
 
-- It is known from the properties of MinT that we will reduce forecast variance for $(\mathbf{c}'_t,\mathbf{y}'_t)'$.
-- We have proven that the same is true when only looking at $\mathbf{y}_t$.
+- It is known from the properties of MinT that we will reduce forecast variance for $(\mathbf{c}',\mathbf{y}')'$.
+- It has been proven that the same is true when only looking at $\mathbf{y}$.
 - It is this result that allows the benefits of reconciliation to be applied to problems where there are no constraints at all! 
 - We also prove that the forecast variance in non-increasing as more synthetic components are added.
 
