@@ -27,7 +27,7 @@ library(DiagrammeR)
 
 ## Hierarchical Time Series
 
-- At its most general, **multivariate** data $\mathbf{y}\in \mathbb{R}^n$ bound together by some constraints.
+- At its most general, **multivariate** data bound together by some constraints.
 - Typically these constraints are **linear**, although later I will present new work for non-linear constraints.
 - Most commonly arise due to an **aggregation** structure, hence the name 'hierarchical'.
 - Need not be hierarchical, alternative structures are grouped (or crossed) aggregation, or temporal aggregation.
@@ -128,14 +128,14 @@ $$\begin{array}{ccccc}\begin{pmatrix}y_{\textrm{Tot}}\\y_1\\y_2\\y_{1A}\\y_{1B}\
 
 
 
-## An optimization lens
+<!-- ## An optimization lens -->
 
-- Ensure that $\hat{\mathbf{y}}$ and $\tilde{\mathbf{y}}$ are 'close'.
+<!-- - Ensure that $\hat{\mathbf{y}}$ and $\tilde{\mathbf{y}}$ are 'close'. -->
 
-$$\tilde{\mathbf{y}}=\underset{\mathbf{y}}{argmin}||\mathbf{y}-\hat{\mathbf{y}}||_2$$
+<!-- $$\tilde{\mathbf{y}}=\underset{\mathbf{y}}{argmin}||\mathbf{y}-\hat{\mathbf{y}}||_2$$ -->
 
-- Under certain assumptions, this yields the same solution as the regression interpretation.
-- Also has a game theoretic interpretation [see @vanCug2015]
+<!-- - Under certain assumptions, this yields the same solution as the regression interpretation. -->
+<!-- - Also has a game theoretic interpretation [see @vanCug2015] -->
 
 ## Generalizations
 
@@ -151,7 +151,7 @@ $$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}'\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'
 - Another alternative is a geometric view.
 - The constraints define a linear subspace $\mathcal{S}\subset\mathbb{R}^n$.
   - Sometimes $\mathfrak{s}$ notation is used.
-- This can easily be extended to other settings
+- This can naturally be extended to other settings
   - For discrete data $\mathcal{S}$ is a set of points [@ZhaEtAl2023].
   - Non linear constraints will be covered later.
 - The simplest three-variable hierarchy $y_{\textrm{Tot}}=y_A+y_B$ for real-valued data is depicted on the next slide.
@@ -164,7 +164,16 @@ $$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}'\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'
 ## Geometry of reconciliation
 
 - Reconciliation is a **map** from $\psi:\mathbb{R}^n\rightarrow\mathcal{S}$.
-- These maps can be more general than projections.
+- The OLS and MinT method are **projections**, i.e. specific cases of $\psi$.
+- Projections solve an optimisation problem
+
+\only<4->{$$\tilde{\mathbf{y}}=\underset{\mathbf{y}}{argmin}(\mathbf{y}-\hat{\mathbf{y}})'\mathbf{W}(\mathbf{y}-\hat{\mathbf{y}})$$}
+
+- Subject to $\mathbf{y}\in\mathcal{S}$
+
+## Why projections?
+
+- The reconciliation maps can be more general than projections.
 - However projections have some nice properties
   - OLS always reduces forecast error.
   - MinT minimizes forecast error in expectation.
@@ -184,7 +193,7 @@ $$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}'\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'
 \only<2>{\includegraphics[page=3, width=7cm]{figs/mintint.pdf}}
 \only<3>{\includegraphics[page=4, width=7cm]{figs/mintint.pdf}}
 
-# Probabilistic Forecasts
+# Probabilistic Forecast Reconciliation
 
 ## Problem
 
@@ -230,8 +239,8 @@ $$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}'\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'
 ## Score Optimization
 
 - Obtain a sequence of base forecasts $\hat{\mu}_{t}$ and corresponding realizations $\mathbf{y}_{t}$.
-- Parameterize $\psi$ by some parameters $\boldsymbol{\theta}$ (denoted $\psi_{\boldsymbol\theta}$)
-- For example, $\psi(\mathbf{y})=\mathbf{S}(\mathbf{d}+\mathbf{G}\mathbf{y})$, $\boldsymbol{\theta}=\left(\mathbf{d}',vec(\mathbf{G})'\right)'$
+- Parameterize $\psi$ by some vector $\boldsymbol{\theta}$ (denoted $\psi_{\boldsymbol\theta}$)
+- For example, $\psi_{\boldsymbol\theta}(\mathbf{y})=\mathbf{S}(\mathbf{d}+\mathbf{G}\mathbf{y})$, $\boldsymbol{\theta}=\left(\mathbf{d}',vec(\mathbf{G})'\right)'$
 - Optimize the following
 
 \only<5>{$$\underset{\boldsymbol{\theta}}{argmin}\sum\limits_t S(\psi_{\boldsymbol{\theta}}\texttt{\#}\hat{\mu}_{t},\mathbf{y}_t)$$}
@@ -244,29 +253,29 @@ $$\tilde{\mathbf{y}}=\mathbf{S}(\mathbf{S}'\mathbf{W}\mathbf{S})^{-1}\mathbf{S}'
 - Often draw a sample from $\hat\mu$ rather than work with the distribution itself.
 - Optimization by first order methods (e.g. SGD).
 
-## Energy Generation Example
+<!-- ## Energy Generation Example -->
 
-- Consider a moderate sized hierarchy (approx 20 variables) of electricity generation from different sources.
-- Consider four different base forecasts
-  - Assume Gaussianity or bootstrap
-  - Assume independence or dependence
-- Reconcile using projections (OLS, MinT) and also by optimising Energy score.
+<!-- - Consider a moderate sized hierarchy (approx 20 variables) of electricity generation from different sources. -->
+<!-- - Consider four different base forecasts -->
+<!--   - Assume Gaussianity or bootstrap -->
+<!--   - Assume independence or dependence -->
+<!-- - Reconcile using projections (OLS, MinT) and also by optimising Energy score. -->
 
-## Energy Generation Example
+<!-- ## Energy Generation Example -->
 
-\centering
-![](figs/meanenergyscore.pdf){width=50%}
+<!-- \centering -->
+<!-- ![](figs/meanenergyscore.pdf){width=50%} -->
 
-## Some thoughts
+## Main takeaways from empirical work
 
-- Interplay between reconciliation and model misspecification.
-- Reconciliation via score optimization most effective when base models heavily misspecified.
-- For reasonably well specified models:
-  - Projections are robust.
-  - Gains over base forecasts are not as big.
+- For heavily misspecified model (independent and Gaussian base forecasts)
+  - Score Optimisation outperforms benchmarks including projections.
+- For less misspecified models (jointly bootstraped base forecasts) 
+  - Projections perform similarly to score optimization.
 - Reconciliation gives forecaster a 'second chance'.
+- Target reconciliation towards `end goal'.
 
-# Quantile Forecasting
+# Quantile Optimal Reconciliation
 
 ## Pinball loss
 
@@ -285,7 +294,7 @@ $$L_{\alpha}(y,q)=\alpha(y_i-q)I(y_i\geq q)+(1-\alpha)(q-y_i)I(y_i<  q)$$
 
 - Subject to the constraints
 
-\only<2>{$$\tilde{q}_{i,t}=\underset{q}{argmin}E_{\tilde{Y}_{i,t}}\left[ L_{\alpha}(\tilde{y}_{i,t},q)\right]$$}
+\only<2->{$$\tilde{q}_{i,t}=\underset{q}{argmin}E_{\tilde{Y}_{i,t}}\left[ L_{\alpha}(\tilde{y}_{i,t},q)\right]$$}
 
 \only<3>{Note $\tilde{y}_{i,t}$ depend on $\boldsymbol{\theta}$}
 
@@ -367,7 +376,7 @@ $$\underset{\boldsymbol{\theta}}{argmin}\sum^n_{i=1} \sum_{t\in\mathcal{T}_{\mat
 
 $$\tilde{q}_{i,t|t-1}=\underset{q}{argmin}{\color{blue}{\sum_j}} L^{{\color{orange}\beta}}_{\alpha}(\tilde{y}^{(j)}_{i,t},q)$$
 
-<!-- where $\tilde{y}^{(j)}_{i,t}=\psi_{\boldsymbol{\theta}}\left(\hat{y}^{(j)}_{i,t}\right)$ and $\hat{y}^{(j)}_{i,t}\sim\hat\mu_t$ for $j=1,\dots,J$  -->
+\only<2->{where $\tilde{y}^{(j)}_{i,t}=\psi_{\boldsymbol{\theta}}\left(\hat{y}^{(j)}_{i,t}\right)$ and $\hat{y}^{(j)}_{i,t}\sim\hat\mu_t$ for $j=1,\dots,J$}
 
 <!-- ## Some Theory -->
 
@@ -427,7 +436,7 @@ QOpt & 35* &85* &100* &\bf{41*}\\
 **Bold** denotes best performing method, asterisk(*) denotes inclusion in model confidence set (Hansen et. al., 2011).
 
 
-# Non-Linear Forecasting
+# Non-Linear Reconciliation
 
 ## The problem
 
@@ -451,10 +460,10 @@ QOpt & 35* &85* &100* &\bf{41*}\\
 
 ## Towards Theory
 
-- Note focus is still on point forecasts.
+- Note focus is still on point forecasts and projections.
 - First consider case of convex constraints.
   - Reconciliation guaranteed to improve base forecast, but only in hypograph.
-- For more general constraints 
+- For more general constraints use following strategy
   - Find closest point on the coherent manifold equidistant from the base and reconciled forecast.
   - This defines a ball in which reconciliation always outperforms base forecasts.
 
@@ -647,13 +656,13 @@ $$r=\sqrt{\boldsymbol{\kappa}'\mathbf{J}^{*'}\mathbf{J}^{*}\boldsymbol{\kappa}+\
 ## Setup
 
 - Suppose we are interested in multivariate forecasting but do not have linear (or non-linear) constraints.
-- Is there anything interesting about forecast reconciliation.
+- Is there anything interesting about forecast reconciliation?
 - Surprisingly... Yes!
-- New work on Forecast Linear Augmented Projects (FLAP)
+- New work on Forecast Linear Augmented Projection (FLAP)
 
 ## What is FLAP?
 
-- Suppose the target is to foreast $\mathbf{y}\in\mathbb{R}^m$.
+- Suppose the target is to forecast $\mathbf{y}\in\mathbb{R}^m$.
 - We construct new synthetic series $\mathbf{c}\in\mathbb{R}^p$ where $\mathbf{c}=\boldsymbol{\Phi}\mathbf{y}$.
   - The choice of $\boldsymbol{\Phi}$ is arbitrary.
 - The augmented vector $(\mathbf{c}',\mathbf{y}')'$ coheres to known linear constraints.
@@ -663,14 +672,14 @@ $$r=\sqrt{\boldsymbol{\kappa}'\mathbf{J}^{*'}\mathbf{J}^{*}\boldsymbol{\kappa}+\
 ## The key idea
 
 - It is known from the properties of MinT that we will reduce forecast variance for $(\mathbf{c}',\mathbf{y}')'$.
-- It has been proven that the same is true when only looking at $\mathbf{y}$.
-- It is this result that allows the benefits of reconciliation to be applied to problems where there are no constraints at all! 
+- It has been proven that the same is true when only looking at a subset of the hierarchy (in our case, $\mathbf{y}$).
+- This result allows the benefits of reconciliation to be applied to problems where there are no constraints at all! 
 - We also prove that the forecast variance in non-increasing as more synthetic components are added.
 
 ## No free lunch
 
 - Originally FLAP stood for 'Free Lunch' augmented projection.
-- All proofs assume error covariance matrix used in MinT in **known**. In practice it is estimated.
+- All proofs assume error covariance matrix used in MinT is **known**. In practice it is estimated.
 - The quality of covariance matrix estimates deteriorate with higher dimension.
 - However for finite dimension, the benefit of FLAP outweighs errors in estimating covariance matrix.
 
@@ -743,15 +752,13 @@ $$r=\sqrt{\boldsymbol{\kappa}'\mathbf{J}^{*'}\mathbf{J}^{*}\boldsymbol{\kappa}+\
 
 ## FRED-MD
 
-* Monthly data of macroeconomic variables (McCracken and Ng, 2016).
+- Monthly data of macroeconomic variables (McCracken and Ng, 2016).
 
-* Data from Jan 1959 -- Sep 2023. 777 observations on 122 series.
+- Data from Jan 1959 -- Sep 2023. 777 observations on 122 series.
 
-* Same cleaning process as per McCracken and Ng (2016).
-
-* All series scaled to have mean 0 and variance 1.
-
-* Expanding time series cross-validation with initial size of 25 years and forecast horizon 12 months.
+- Expanding time series validation with 
+  - Initial sample size of 25 years and 
+  - Forecast horizon up to 12 months.
 
 ```{r}
 #| label: fred-md
